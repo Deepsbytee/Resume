@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Modern To-Do App</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<h1>To-Do List Web App</h1>
+
+<div class="container">
+
+<div class="task-form">
+<input id="taskTitle" type="text" placeholder="Enter task title..." required>
+<textarea id="taskDesc" placeholder="Task description (optional)..." rows="3"></textarea>
+<div class="form-buttons">
+<input type="hidden" id="editId">
+<button class="add-btn" onclick="addTask()">➕ Add Task</button>
+<button class="clear-btn" onclick="clearForm()">Clear</button>
+</div>
+</div>
+
+<div class="tabs">
+<button class="tab-btn active" onclick="showTab('all', this)">All Tasks</button>
+<button class="tab-btn" onclick="showTab('pending', this)">Pending</button>
+<button class="tab-btn" onclick="showTab('completed', this)">Completed</button>
+</div>
+
+<div class="main-tasks">
+  <div class="task-section pending-section active">
+    <h2><i class="fas fa-clock"></i> Pending Tasks (<span id="pending-count">0</span>)</h2>
+    <ul id="pending"></ul>
+  </div>
+  <div class="task-section completed-section">
+    <h2><i class="fas fa-check-circle"></i> Completed Tasks (<span id="completed-count">0</span>)</h2>
+    <ul id="completed"></ul>
+  </div>
+</div>
+
+</div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
