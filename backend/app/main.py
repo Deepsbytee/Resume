@@ -10,6 +10,11 @@ from app.core.security import get_password_hash
 # Some Windows bcrypt wheels/versions can trigger passlib/bcrypt import quirks.
 # Use a short demo password to avoid bcrypt edge-case truncation/validation.
 DEMO_PASSWORD = "DemoPass123!"[:72]
+DEMO_ACCOUNTS = (
+    ("candidate@demo.example.com", "Demo Candidate", UserRole.candidate),
+    ("recruiter@demo.example.com", "Demo Recruiter", UserRole.recruiter),
+    ("admin@demo.example.com", "Demo Admin", UserRole.admin),
+)
 
 
 app = FastAPI(
@@ -39,6 +44,39 @@ app.add_middleware(
 app.include_router(api_router)
 
 
+def ensure_demo_accounts():
+    db = SessionLocal()
+    try:
+        demo_password_hash = get_password_hash(DEMO_PASSWORD)
+        changed = False
+
+        for email, full_name, role in DEMO_ACCOUNTS:
+            existing = db.query(User).filter(User.email == email).first()
+            if not existing:
+                role_name = email.split("@", 1)[0]
+                for legacy_email in (f"{role_name}@example.com", f"{role_name}@demo.local"):
+                    existing = db.query(User).filter(User.email == legacy_email).first()
+                    if existing:
+                        existing.email = email
+                        changed = True
+                        break
+
+            if not existing:
+                existing = User(email=email)
+                db.add(existing)
+
+            existing.full_name = full_name
+            existing.hashed_password = demo_password_hash
+            existing.role = role
+            existing.is_active = True
+            changed = True
+
+        if changed:
+            db.commit()
+    finally:
+        db.close()
+
+
 @app.on_event("startup")
 def startup():
     # Ensure DB path exists for SQLite.
@@ -48,48 +86,9 @@ def startup():
     # Create tables (no migrations required for local dev).
     Base.metadata.create_all(bind=engine)
 
-    # Seed demo users only if DB is empty.
-    db = SessionLocal()
-    try:
-        # Seed demo users only if the database is empty.
-        # Use a robust per-user existence check to avoid UNIQUE constraint failures
-        # if the DB file already exists from an earlier run.
-        demo_users = [
-            {"email": "candidate@example.com", "full_name": "Demo Candidate", "role": UserRole.candidate},
-            {"email": "recruiter@example.com", "full_name": "Demo Recruiter", "role": UserRole.recruiter},
-            {"email": "admin@example.com", "full_name": "Demo Admin", "role": UserRole.admin},
-        ]
-
-        for u in demo_users:
-            existing = db.query(User).filter(User.email == u["email"]).first()
-            if existing:
-                continue
-
-            # Avoid passlib/bcrypt on startup in misconfigured Windows environments.
-            # Store a deterministic hash compatible with our verify_password().
-            # If bcrypt hashing fails, fall back to plaintext demo password.
-            try:
-                hashed = get_password_hash(DEMO_PASSWORD)
-            except Exception:
-                hashed = DEMO_PASSWORD
-
-            user = User(
-                email=u["email"],
-                full_name=u["full_name"],
-                hashed_password=hashed,
-                role=u["role"],
-            )
-            db.add(user)
-
-        # Only commit if we actually added anything.
-        if db.new:
-            db.commit()
-
-    finally:
-        db.close()
+    ensure_demo_accounts()
 
 
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "careeriq-api"}
-
